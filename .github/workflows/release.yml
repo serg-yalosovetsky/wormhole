@@ -37,7 +37,9 @@ jobs:
           GOOS: windows
           GOARCH: amd64
           CGO_ENABLED: '0'
-        run: go build -ldflags="-s -w -H=windowsgui" -o wormhole-windows-amd64.exe .
+        run: |
+          go mod download
+          go build -ldflags="-s -w -H=windowsgui" -o wormhole-windows-amd64.exe .
 
       - uses: actions/upload-artifact@v4
         with:
@@ -76,7 +78,7 @@ jobs:
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         run: |
-          gomobile init
+          go mod download
           mkdir -p ../android/app/libs
           gomobile bind \
             -target android \
