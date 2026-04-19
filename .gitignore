@@ -9,14 +9,8 @@ windows/wormhole-windows*.exe
 native/*.aar
 native/*.jar
 
-# Android
-android/.gradle/
-android/local.properties
-android/app/build/
-android/build/
-android/app/google-services.json
-*.apk
-*.aab
+# Backend
+backend/serviceAccount.json
 
 # Python
 backend/__pycache__/

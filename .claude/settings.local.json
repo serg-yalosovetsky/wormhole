@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where java *)",
+      "Read(//c/Program Files/Java/**)",
+      "Read(//c/Program Files/Eclipse Adoptium/**)",
+      "Read(//c/Program Files/**)",
+      "Bash(git *)"
+    ]
+  }
+}

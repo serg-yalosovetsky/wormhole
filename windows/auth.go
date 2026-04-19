@@ -19,8 +19,8 @@ import (
 
 // Firebase / Google OAuth constants – replace with your project values.
 const (
-	firebaseAPIKey    = "YOUR_FIREBASE_WEB_API_KEY"
-	googleClientID    = "YOUR_GOOGLE_OAUTH_CLIENT_ID"
+	firebaseAPIKey    = "AIzaSyDKjqPzxhE3JEsOpOjz_FFCejiK-mSPbOQ"
+	googleClientID    = "1473173017-f22r9trf854gm47kb10msqmv8lr5f4ja.apps.googleusercontent.com"
 	googleRedirectURI = "http://localhost"
 )
 
