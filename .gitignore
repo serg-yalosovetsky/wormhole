@@ -1,0 +1,38 @@
+# Go
+*/vendor/
+**/go.sum
+*.exe
+*.dll
+*.so
+*.dylib
+windows/wormhole-windows*.exe
+native/*.aar
+native/*.jar
+
+# Android
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/
+android/app/google-services.json
+*.apk
+*.aab
+
+# Python
+backend/__pycache__/
+backend/*.pyc
+backend/.venv/
+backend/devices.db
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+**/credentials.json
+**/.env
