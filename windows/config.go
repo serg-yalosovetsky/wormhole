@@ -34,7 +34,7 @@ func loadConfig() {
 		json.Unmarshal(data, &cfg) //nolint:errcheck
 	}
 	if cfg.RelayURL == "" {
-		cfg.RelayURL = "https://wormhole-relay.railway.app"
+		cfg.RelayURL = "https://wormhole.ibotz.fun"
 	}
 	if cfg.DeviceID == "" {
 		cfg.DeviceID = newDeviceID()

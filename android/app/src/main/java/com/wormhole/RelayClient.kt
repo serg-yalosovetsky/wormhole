@@ -17,7 +17,7 @@ import java.util.UUID
 object RelayClient {
 
     // Set this to your deployed backend URL.
-    private const val RELAY_URL = "https://wormhole-relay.railway.app"
+    private const val RELAY_URL = "https://wormhole.ibotz.fun"
 
     private val http = OkHttpClient()
     private val JSON = "application/json".toMediaType()
