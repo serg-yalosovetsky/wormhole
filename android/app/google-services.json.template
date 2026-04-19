@@ -1,0 +1,34 @@
+{
+  "_comment": "Download the real google-services.json from Firebase Console → Project settings → Your apps → Android app. Place it at android/app/google-services.json (it is gitignored).",
+  "project_info": {
+    "project_number": "YOUR_PROJECT_NUMBER",
+    "project_id": "YOUR_PROJECT_ID"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:YOUR_PROJECT_NUMBER:android:XXXX",
+        "android_client_info": {
+          "package_name": "com.wormhole"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "YOUR_ANDROID_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
