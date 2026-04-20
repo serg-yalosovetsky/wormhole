@@ -37,8 +37,9 @@ jobs:
           GOOS: windows
           GOARCH: amd64
           CGO_ENABLED: '0'
+          GOFLAGS: -mod=mod
         run: |
-          go mod download
+          go mod download all
           go build -ldflags="-s -w -H=windowsgui" -o wormhole-windows-amd64.exe .
 
       - uses: actions/upload-artifact@v4
@@ -77,6 +78,7 @@ jobs:
         working-directory: native
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          GOFLAGS: -mod=mod
         run: |
           go mod download
           go mod download golang.org/x/mobile
