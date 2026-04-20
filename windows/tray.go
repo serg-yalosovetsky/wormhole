@@ -6,10 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/getlantern/systray"
 	"github.com/go-toast/toast"
-	"github.com/sqweek/dialog"
 )
 
 //go:embed assets/tray.ico
@@ -44,13 +44,25 @@ func onTrayExit() {}
 // pickAndSend opens a native file-open dialog and sends the chosen file.
 // No window stays open — dialog is modal and closes on its own.
 func pickAndSend() {
-	filePath, err := dialog.File().
-		Title("Выберите файл для отправки через Wormhole").
-		Load()
+	psScript := `
+Add-Type -AssemblyName System.Windows.Forms
+$dialog = New-Object System.Windows.Forms.OpenFileDialog
+$dialog.Title = 'Выберите файл для отправки через Wormhole'
+$dialog.Filter = 'All files (*.*)|*.*'
+if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+  Write-Output $dialog.FileName
+}
+`
+	out, err := exec.Command("powershell", "-NoProfile", "-Command", psScript).Output()
 	if err != nil {
-		// User cancelled — do nothing.
+		// User cancelled or dialog unavailable — do nothing.
 		return
 	}
+	filePath := strings.TrimSpace(string(out))
+	if filePath == "" {
+		return
+	}
+
 	runSend(filePath)
 }
 
