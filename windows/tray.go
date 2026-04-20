@@ -45,6 +45,8 @@ func onTrayExit() {}
 // No window stays open — dialog is modal and closes on its own.
 func pickAndSend() {
 	psScript := `
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 Add-Type -AssemblyName System.Windows.Forms
 $dialog = New-Object System.Windows.Forms.OpenFileDialog
 $dialog.Title = 'Выберите файл для отправки через Wormhole'
