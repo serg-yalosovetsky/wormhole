@@ -32,15 +32,11 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 
-    // Include the gomobile AAR from native/build.sh output.
-    repositories {
-        flatDir { dirs("libs") }
-    }
 }
 
 dependencies {
     // Gomobile wormhole-william AAR (built via native/build.sh)
-    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar", "*.jar"))))
+    implementation fileTree(dir: "libs", include: ["*.aar", "*.jar"])
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
