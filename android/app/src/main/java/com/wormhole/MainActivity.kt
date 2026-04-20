@@ -69,10 +69,12 @@ class MainActivity : AppCompatActivity() {
                     finish()
                 } else {
                     Toast.makeText(this, "Ошибка входа: ${t.exception?.message}", Toast.LENGTH_LONG).show()
+                    t.exception?.let { io.sentry.Sentry.captureException(it) }
                 }
             }
         } catch (e: ApiException) {
             Toast.makeText(this, "Ошибка Google: ${e.statusCode}", Toast.LENGTH_LONG).show()
+            io.sentry.Sentry.captureException(e)
         }
     }
 }
