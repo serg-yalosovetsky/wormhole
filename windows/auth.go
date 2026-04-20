@@ -61,6 +61,7 @@ func signIn(relayURL, deviceID string) Config {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Wormhole — вход выполнен</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%236366f1'/%3E%3Ccircle cx='50' cy='50' r='34' fill='none' stroke='white' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='22' fill='none' stroke='white' stroke-width='4' opacity='.6'/%3E%3Ccircle cx='50' cy='50' r='10' fill='none' stroke='white' stroke-width='3' opacity='.35'/%3E%3Ccircle cx='50' cy='50' r='4' fill='white'/%3E%3C/svg%3E">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:#0f1117;color:#e8eaf0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
@@ -88,13 +89,19 @@ func signIn(relayURL, deviceID string) Config {
       <defs>
         <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stop-color="#6366f1"/>
-          <stop offset="100%" stop-color="#8b5cf6"/>
+          <stop offset="100%" stop-color="#7c3aed"/>
         </linearGradient>
+        <radialGradient id="void" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#1e1b4b"/>
+          <stop offset="100%" stop-color="#1e1b4b" stop-opacity="0"/>
+        </radialGradient>
       </defs>
       <rect width="100" height="100" rx="22" fill="url(#g)"/>
-      <ellipse cx="50" cy="50" rx="28" ry="14" fill="none" stroke="#fff" stroke-width="5" opacity=".9"/>
-      <ellipse cx="50" cy="50" rx="16" ry="8"  fill="none" stroke="#fff" stroke-width="4" opacity=".7"/>
-      <ellipse cx="50" cy="50" rx="5"  ry="5"  fill="#fff"/>
+      <circle cx="50" cy="50" r="34" fill="none" stroke="#fff" stroke-width="6" opacity=".95"/>
+      <circle cx="50" cy="50" r="23" fill="none" stroke="#fff" stroke-width="4" opacity=".65"/>
+      <circle cx="50" cy="50" r="12" fill="none" stroke="#fff" stroke-width="3" opacity=".38"/>
+      <circle cx="50" cy="50" r="34" fill="url(#void)"/>
+      <circle cx="50" cy="50" r="4"  fill="#fff" opacity=".9"/>
     </svg>
   </div>
   <h1>Wormhole</h1>
