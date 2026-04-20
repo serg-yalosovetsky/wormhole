@@ -18,7 +18,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            minifyEnabled true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -32,15 +32,12 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 
-    // Include the gomobile AAR from native/build.sh output.
-    repositories {
-        flatDir { dirs("libs") }
-    }
 }
 
 dependencies {
-    // Gomobile wormhole-william AAR (built via native/build.sh)
-    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar", "*.jar"))))
+    // Gomobile wormhole-william AAR (built via native/build.sh).
+    // Use a direct file dependency so we don't need a flatDir repository.
+    implementation files("libs/wormhole.aar")
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
