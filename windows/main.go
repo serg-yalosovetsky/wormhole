@@ -7,9 +7,23 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	sentry "github.com/getsentry/sentry-go"
 )
 
 func main() {
+	sentry.Init(sentry.ClientOptions{ //nolint
+		Dsn: "https://d3c95e3fc6f8be0d32b42244de016180@o4504272346480640.ingest.us.sentry.io/4511254231973888",
+	})
+	defer sentry.Flush(2 * time.Second)
+	defer func() {
+		if r := recover(); r != nil {
+			sentry.CurrentHub().Recover(r)
+			sentry.Flush(2 * time.Second)
+		}
+	}()
+
 	receiveFlag := flag.String("receive", "", "wormhole code to receive (code:codeID:filename)")
 	uriFlag     := flag.String("uri", "", "wormhole: URI dispatched by protocol handler")
 	installFlag := flag.Bool("install", false, "install SendTo shortcut and protocol handler")

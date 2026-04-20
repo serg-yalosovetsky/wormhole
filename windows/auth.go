@@ -55,7 +55,62 @@ func signIn(relayURL, deviceID string) Config {
 	srv := &http.Server{}
 	http.HandleFunc("/cb", func(w http.ResponseWriter, r *http.Request) {
 		code := r.URL.Query().Get("code")
-		fmt.Fprint(w, "<html><body><h2>Вход выполнен. Можно закрыть окно.</h2></body></html>")
+		fmt.Fprint(w, `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wormhole — вход выполнен</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f1117;color:#e8eaf0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+       display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+  .card{background:#1a1d27;border:1px solid #2a2d3a;border-radius:16px;padding:40px 48px;
+        max-width:480px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+  .icon{width:72px;height:72px;margin:0 auto 20px;border-radius:16px;overflow:hidden}
+  .icon svg{width:100%;height:100%}
+  h1{font-size:22px;font-weight:700;margin-bottom:8px;color:#fff}
+  .badge{display:inline-block;background:#22c55e22;color:#22c55e;border:1px solid #22c55e44;
+         border-radius:20px;padding:4px 14px;font-size:13px;font-weight:600;margin-bottom:24px}
+  .divider{height:1px;background:#2a2d3a;margin:24px 0}
+  h2{font-size:14px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}
+  ol{text-align:left;padding-left:20px;line-height:1.8;color:#c9cdd8;font-size:14px}
+  ol li{margin-bottom:6px}
+  kbd{background:#252836;border:1px solid #3a3d4a;border-radius:5px;padding:1px 6px;
+      font-size:12px;font-family:monospace;color:#e2e8f0}
+  .close-hint{margin-top:24px;font-size:13px;color:#6b7280}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#6366f1"/>
+          <stop offset="100%" stop-color="#8b5cf6"/>
+        </linearGradient>
+      </defs>
+      <rect width="100" height="100" rx="22" fill="url(#g)"/>
+      <ellipse cx="50" cy="50" rx="28" ry="14" fill="none" stroke="#fff" stroke-width="5" opacity=".9"/>
+      <ellipse cx="50" cy="50" rx="16" ry="8"  fill="none" stroke="#fff" stroke-width="4" opacity=".7"/>
+      <ellipse cx="50" cy="50" rx="5"  ry="5"  fill="#fff"/>
+    </svg>
+  </div>
+  <h1>Wormhole</h1>
+  <div class="badge">✓ Вход выполнен</div>
+  <div class="divider"></div>
+  <h2>Как пользоваться</h2>
+  <ol>
+    <li>Найдите файл в Проводнике</li>
+    <li>Щёлкните правой кнопкой → <kbd>Отправить</kbd> → <kbd>Wormhole</kbd></li>
+    <li>Файл автоматически отправится на все ваши устройства</li>
+    <li>На телефоне появится уведомление — нажмите «Принять»</li>
+  </ol>
+  <p class="close-hint">Это окно можно закрыть.</p>
+</div>
+</body>
+</html>`)
 		codeCh <- code
 	})
 	go srv.Serve(ln) //nolint:errcheck
