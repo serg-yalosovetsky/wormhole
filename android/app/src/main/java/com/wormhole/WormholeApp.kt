@@ -10,10 +10,12 @@ import io.sentry.android.core.SentryAndroid
 class WormholeApp : Application() {
 
     override fun onCreate() {
-        SentryAndroid.init(this) { options ->
-            options.dsn = "https://d3c95e3fc6f8be0d32b42244de016180@o4504272346480640.ingest.us.sentry.io/4511254231973888"
-        }
         super.onCreate()
+        try {
+            SentryAndroid.init(this) { options ->
+                options.dsn = "https://d3c95e3fc6f8be0d32b42244de016180@o4504272346480640.ingest.us.sentry.io/4511254231973888"
+            }
+        } catch (_: Exception) {}
         FirebaseApp.initializeApp(this)
         createNotificationChannels()
     }
