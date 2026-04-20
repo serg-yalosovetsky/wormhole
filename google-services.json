@@ -14,7 +14,15 @@
       },
       "oauth_client": [
         {
-          "client_id": "1473173017-ldgibrffqrjjknidgn7akdrhlvrggkuu.apps.googleusercontent.com",
+          "client_id": "1473173017-kiq78v55isffamn1nr7put5peku1e9p8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wormhole",
+            "certificate_hash": "924a984eddeb6e5048e671542b0e91f995b5c21c"
+          }
+        },
+        {
+          "client_id": "1473173017-1o5u1uognti5p2hundkqqj2oi7u5qvg4.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
@@ -27,7 +35,7 @@
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "1473173017-ldgibrffqrjjknidgn7akdrhlvrggkuu.apps.googleusercontent.com",
+              "client_id": "1473173017-1o5u1uognti5p2hundkqqj2oi7u5qvg4.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

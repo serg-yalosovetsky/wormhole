@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -191,20 +192,29 @@ func refreshIDToken() (refreshResult, error) {
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func exchangeGoogleCode(code, verifier, redirectURI string) string {
-	resp, err := http.PostForm("https://oauth2.googleapis.com/token", url.Values{
+	form := url.Values{
 		"client_id":     {googleClientID},
 		"code":          {code},
 		"code_verifier": {verifier},
 		"grant_type":    {"authorization_code"},
 		"redirect_uri":  {redirectURI},
-	})
+	}
+	if clientSecret := strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_SECRET")); clientSecret != "" {
+		form.Set("client_secret", clientSecret)
+	}
+
+	resp, err := http.PostForm("https://oauth2.googleapis.com/token", form)
 	if err != nil {
 		panic(fmt.Sprintf("token exchange: %v", err))
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 300 {
-		panic(fmt.Sprintf("token exchange HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body))))
+		msg := fmt.Sprintf("token exchange HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		if strings.Contains(string(body), "client_secret is missing") {
+			msg += " (set GOOGLE_CLIENT_SECRET for the Desktop OAuth client)"
+		}
+		panic(msg)
 	}
 	var result struct {
 		IDToken string `json:"id_token"`

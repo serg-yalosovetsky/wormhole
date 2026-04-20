@@ -62,11 +62,23 @@ func main() {
 		return
 	}
 
-	// Default: load config (triggers sign-in if needed), then run tray.
-	loadConfig()
-	go registerWithBackend()
-	go pollLoop()
+	// Default: bring up the tray immediately, then initialize background services.
+	go startBackgroundServices()
 	runTray() // blocks until quit
+}
+
+func startBackgroundServices() {
+	defer func() {
+		if r := recover(); r != nil {
+			sentry.CurrentHub().Recover(r)
+			sentry.Flush(2 * time.Second)
+			showErrorToast("Wormhole", fmt.Sprintf("Ошибка запуска: %v", r))
+		}
+	}()
+
+	loadConfig()
+	registerWithBackend()
+	pollLoop()
 }
 
 // handleURI dispatches wormhole:<action>:<payload> URIs from toast buttons.
