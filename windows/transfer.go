@@ -18,19 +18,13 @@ func runSend(filePath string) {
 	}
 	defer f.Close()
 
-	fi, err := f.Stat()
-	if err != nil {
-		showErrorToast("Ошибка файла", err.Error())
-		return
-	}
-
 	loadConfig()
 
 	c := ww.Client{}
 	ctx := context.Background()
 	name := filepath.Base(filePath)
 
-	code, statusCh, err := c.SendFile(ctx, name, f, ww.WithFileSize(uint64(fi.Size())))
+	code, statusCh, err := c.SendFile(ctx, name, f)
 	if err != nil {
 		showErrorToast("Ошибка отправки", err.Error())
 		return
@@ -91,4 +85,3 @@ func desktopDir() string {
 	}
 	return filepath.Join(home, "Downloads")
 }
-

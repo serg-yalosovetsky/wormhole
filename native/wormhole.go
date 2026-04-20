@@ -48,8 +48,7 @@ func SendFile(path string, cb SendCallback) {
 	c := ww.Client{}
 	ctx := context.Background()
 
-	code, statusCh, err := c.SendFile(ctx, filepath.Base(path), f,
-		ww.WithFileSize(uint64(fi.Size())))
+	code, statusCh, err := c.SendFile(ctx, filepath.Base(path), f)
 	if err != nil {
 		cb.OnError(fmt.Sprintf("send: %v", err))
 		return
