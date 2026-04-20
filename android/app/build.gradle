@@ -35,8 +35,9 @@ android {
 }
 
 dependencies {
-    // Gomobile wormhole-william AAR (built via native/build.sh)
-    implementation fileTree(dir: "libs", include: ["*.aar", "*.jar"])
+    // Gomobile wormhole-william AAR (built via native/build.sh).
+    // Use a direct file dependency so we don't need a flatDir repository.
+    implementation files("libs/wormhole.aar")
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
