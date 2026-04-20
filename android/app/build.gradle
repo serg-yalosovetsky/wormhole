@@ -10,8 +10,13 @@ def appGoogleServicesFile = file("google-services.json")
 def repoGoogleServicesFile = rootProject.file("../google-services.json")
 def generatedGoogleSignInResDir = layout.buildDirectory.dir("generated/res/googleSignInConfig")
 def googleServicesPackageName = "com.wormhole"
+def configuredGoogleWebClientIdProvider = providers.gradleProperty("wormhole.googleWebClientId")
+    .orElse(providers.environmentVariable("GOOGLE_WEB_CLIENT_ID"))
 def googleServicesInputFiles = providers.provider {
     [appGoogleServicesFile, repoGoogleServicesFile].findAll { it.exists() }
+}
+def configuredGoogleWebClientIdInput = providers.provider {
+    configuredGoogleWebClientIdProvider.orNull ?: ""
 }
 
 def resolveGoogleServicesFile = {
@@ -22,6 +27,16 @@ def resolveGoogleServicesFile = {
         return repoGoogleServicesFile
     }
     return null
+}
+
+def resolveConfiguredGoogleWebClientId = {
+    def configuredValue = configuredGoogleWebClientIdProvider.orNull
+    if (configuredValue == null) {
+        return null
+    }
+
+    configuredValue = configuredValue.trim()
+    return configuredValue ? configuredValue : null
 }
 
 android {
@@ -79,6 +94,7 @@ def syncFirebaseConfig = tasks.register("syncFirebaseConfig") {
 def generateGoogleSignInRes = tasks.register("generateGoogleSignInRes") {
     dependsOn(syncFirebaseConfig)
     inputs.files(googleServicesInputFiles)
+    inputs.property("configuredGoogleWebClientId", configuredGoogleWebClientIdInput)
     outputs.dir(generatedGoogleSignInResDir)
 
     doLast {
@@ -99,15 +115,21 @@ def generateGoogleSignInRes = tasks.register("generateGoogleSignInRes") {
             )
         }
 
-        def oauthClients = []
-        oauthClients.addAll(client.oauth_client ?: [])
-        oauthClients.addAll(client?.services?.appinvite_service?.other_platform_oauth_client ?: [])
-        def webClient = oauthClients.find { it?.client_type == 3 && it?.client_id }
-        if (webClient?.client_id == null) {
+        def configuredWebClientId = resolveConfiguredGoogleWebClientId()
+        def webClientId = configuredWebClientId
+        if (webClientId == null) {
+            def oauthClients = []
+            oauthClients.addAll(client.oauth_client ?: [])
+            oauthClients.addAll(client?.services?.appinvite_service?.other_platform_oauth_client ?: [])
+            webClientId = oauthClients.find { it?.client_type == 3 && it?.client_id }?.client_id
+        }
+
+        if (webClientId == null) {
             throw new GradleException(
                 "google-services.json for ${googleServicesPackageName} is missing a Web OAuth client (client_type=3). " +
                 "Google Sign-In on Android will fail with DEVELOPER_ERROR (10). " +
-                "Add the Android SHA-1/SHA-256 in Firebase/Google Cloud, make sure Google sign-in is enabled, then re-download google-services.json."
+                "Either add the Android SHA-1/SHA-256 in Firebase/Google Cloud, make sure Google sign-in is enabled, then re-download google-services.json, " +
+                "or provide GOOGLE_WEB_CLIENT_ID / -Pwormhole.googleWebClientId during the build."
             )
         }
 
@@ -115,7 +137,7 @@ def generateGoogleSignInRes = tasks.register("generateGoogleSignInRes") {
         valuesDir.mkdirs()
         new File(valuesDir, "wormhole-google-signin.xml").text = """<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="default_web_client_id">${webClient.client_id}</string>
+    <string name="default_web_client_id">${webClientId}</string>
 </resources>
 """
     }
