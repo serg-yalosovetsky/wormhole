@@ -2,6 +2,7 @@
 #
 # Required GitHub Secrets:
 #   GOOGLE_SERVICES_JSON   — full contents of android/app/google-services.json
+#   GOOGLE_WEB_CLIENT_ID   — Web OAuth client ID used for Android Google Sign-In fallback
 #   SIGNING_KEY_BASE64     — base64-encoded Android keystore (run: base64 keystore.jks)
 #   KEY_ALIAS              — key alias inside the keystore
 #   KEYSTORE_PASSWORD      — keystore password
@@ -108,6 +109,8 @@ jobs:
 
       - name: Build release APK
         working-directory: android
+        env:
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
         run: gradle assembleRelease --no-daemon -q
 
       # ── Sign APK ───────────────────────────────────────────────────────
