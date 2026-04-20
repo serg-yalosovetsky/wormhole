@@ -1,7 +1,24 @@
+import groovy.json.JsonSlurper
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
+}
+
+def appGoogleServicesFile = file("google-services.json")
+def rootGoogleServicesFile = rootProject.file("google-services.json")
+def generatedGoogleSignInResDir = layout.buildDirectory.dir("generated/res/googleSignInConfig")
+def googleServicesPackageName = "com.wormhole"
+
+def resolveGoogleServicesFile = {
+    if (appGoogleServicesFile.exists()) {
+        return appGoogleServicesFile
+    }
+    if (rootGoogleServicesFile.exists()) {
+        return rootGoogleServicesFile
+    }
+    return null
 }
 
 android {
@@ -32,6 +49,79 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 
+    sourceSets {
+        main {
+            res.srcDir(generatedGoogleSignInResDir)
+        }
+    }
+}
+
+def syncFirebaseConfig = tasks.register("syncFirebaseConfig") {
+    inputs.file(rootGoogleServicesFile).optional()
+    outputs.file(appGoogleServicesFile)
+
+    doLast {
+        if (appGoogleServicesFile.exists() || !rootGoogleServicesFile.exists()) {
+            return
+        }
+
+        copy {
+            from(rootGoogleServicesFile)
+            into(appGoogleServicesFile.parentFile)
+            rename { "google-services.json" }
+        }
+    }
+}
+
+def generateGoogleSignInRes = tasks.register("generateGoogleSignInRes") {
+    dependsOn(syncFirebaseConfig)
+    inputs.files(appGoogleServicesFile, rootGoogleServicesFile)
+    outputs.dir(generatedGoogleSignInResDir)
+
+    doLast {
+        def sourceFile = resolveGoogleServicesFile()
+        if (sourceFile == null) {
+            throw new GradleException(
+                "Missing google-services.json. Put it in android/app/google-services.json or repo-root google-services.json."
+            )
+        }
+
+        def parsed = new JsonSlurper().parse(sourceFile)
+        def client = (parsed.client ?: []).find {
+            it?.client_info?.android_client_info?.package_name == googleServicesPackageName
+        }
+        if (client == null) {
+            throw new GradleException(
+                "google-services.json does not contain an Android client for package ${googleServicesPackageName}."
+            )
+        }
+
+        def oauthClients = []
+        oauthClients.addAll(client.oauth_client ?: [])
+        oauthClients.addAll(client?.services?.appinvite_service?.other_platform_oauth_client ?: [])
+        def webClient = oauthClients.find { it?.client_type == 3 && it?.client_id }
+        if (webClient?.client_id == null) {
+            throw new GradleException(
+                "google-services.json for ${googleServicesPackageName} is missing a Web OAuth client (client_type=3). " +
+                "Google Sign-In on Android will fail with DEVELOPER_ERROR (10). " +
+                "Add the Android SHA-1/SHA-256 in Firebase/Google Cloud, make sure Google sign-in is enabled, then re-download google-services.json."
+            )
+        }
+
+        def valuesDir = generatedGoogleSignInResDir.get().file("values").asFile
+        valuesDir.mkdirs()
+        new File(valuesDir, "wormhole-google-signin.xml").text = """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="default_web_client_id">${webClient.client_id}</string>
+</resources>
+"""
+    }
+}
+
+tasks.configureEach { task ->
+    if (task.name == "preBuild" || task.name.endsWith("GoogleServices")) {
+        task.dependsOn(generateGoogleSignInRes)
+    }
 }
 
 dependencies {

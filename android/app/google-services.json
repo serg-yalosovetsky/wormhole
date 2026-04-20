@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1473173017",
+    "project_id": "wormhole-870c8",
+    "storage_bucket": "wormhole-870c8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1473173017:android:1906fddd6eed11cc9a3c88",
+        "android_client_info": {
+          "package_name": "com.wormhole"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKjqPzxhE3JEsOpOjz_FFCejiK-mSPbOQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

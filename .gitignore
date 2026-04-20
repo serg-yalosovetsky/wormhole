@@ -30,3 +30,6 @@ Thumbs.db
 # Secrets
 **/credentials.json
 **/.env
+
+
+.omx
