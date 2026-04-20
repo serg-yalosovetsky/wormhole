@@ -15,6 +15,12 @@
         android:label="@string/app_name"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
+        <!-- Sentry: auto-init via ContentProvider before Application.onCreate() -->
+        <meta-data android:name="io.sentry.dsn"
+            android:value="https://d3c95e3fc6f8be0d32b42244de016180@o4504272346480640.ingest.us.sentry.io/4511254231973888" />
+        <meta-data android:name="io.sentry.traces-sample-rate" android:value="0.2" />
+        <meta-data android:name="io.sentry.auto-init" android:value="true" />
+
         <!-- Minimal main activity: shown only for initial Google sign-in -->
         <activity
             android:name=".MainActivity"
