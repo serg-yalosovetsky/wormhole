@@ -7,16 +7,19 @@ plugins {
 }
 
 def appGoogleServicesFile = file("google-services.json")
-def rootGoogleServicesFile = rootProject.file("google-services.json")
+def repoGoogleServicesFile = rootProject.file("../google-services.json")
 def generatedGoogleSignInResDir = layout.buildDirectory.dir("generated/res/googleSignInConfig")
 def googleServicesPackageName = "com.wormhole"
+def googleServicesInputFiles = providers.provider {
+    [appGoogleServicesFile, repoGoogleServicesFile].findAll { it.exists() }
+}
 
 def resolveGoogleServicesFile = {
     if (appGoogleServicesFile.exists()) {
         return appGoogleServicesFile
     }
-    if (rootGoogleServicesFile.exists()) {
-        return rootGoogleServicesFile
+    if (repoGoogleServicesFile.exists()) {
+        return repoGoogleServicesFile
     }
     return null
 }
@@ -57,16 +60,16 @@ android {
 }
 
 def syncFirebaseConfig = tasks.register("syncFirebaseConfig") {
-    inputs.file(rootGoogleServicesFile).optional()
+    inputs.files(googleServicesInputFiles)
     outputs.file(appGoogleServicesFile)
 
     doLast {
-        if (appGoogleServicesFile.exists() || !rootGoogleServicesFile.exists()) {
+        if (appGoogleServicesFile.exists() || !repoGoogleServicesFile.exists()) {
             return
         }
 
         copy {
-            from(rootGoogleServicesFile)
+            from(repoGoogleServicesFile)
             into(appGoogleServicesFile.parentFile)
             rename { "google-services.json" }
         }
@@ -75,7 +78,7 @@ def syncFirebaseConfig = tasks.register("syncFirebaseConfig") {
 
 def generateGoogleSignInRes = tasks.register("generateGoogleSignInRes") {
     dependsOn(syncFirebaseConfig)
-    inputs.files(appGoogleServicesFile, rootGoogleServicesFile)
+    inputs.files(googleServicesInputFiles)
     outputs.dir(generatedGoogleSignInResDir)
 
     doLast {

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -26,7 +27,7 @@ const (
 
 // signIn performs Google OAuth2 PKCE flow, exchanges for a Firebase ID token,
 // and returns a populated Config. deviceID is carried through so it isn't lost.
-func signIn(relayURL, deviceID string) Config {
+func signIn(relayURL, deviceID string) (Config, Credentials) {
 	verifier := pkceVerifier()
 	challenge := pkceChallenge(verifier)
 
@@ -136,35 +137,55 @@ func signIn(relayURL, deviceID string) Config {
 	googleToken := exchangeGoogleCode(authCode, verifier, redirectURI)
 
 	// Exchange Google ID token for Firebase ID token + refresh token.
-	uid, refreshToken, idToken := firebaseSignIn(googleToken)
+	result := firebaseSignIn(googleToken)
 
 	return Config{
-		UID:          uid,
-		DeviceID:     deviceID,
-		RefreshToken: refreshToken,
-		IDToken:      idToken,
-		RelayURL:     relayURL,
-	}
+			UID:      result.UID,
+			DeviceID: deviceID,
+			RelayURL: relayURL,
+		}, Credentials{
+			RefreshToken: result.RefreshToken,
+			IDToken:      result.IDToken,
+		}
+}
+
+type refreshResult struct {
+	UID          string `json:"user_id"`
+	IDToken      string `json:"id_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+type firebaseSignInResult struct {
+	UID          string
+	RefreshToken string
+	IDToken      string
 }
 
 // refreshIDToken uses the stored refresh token to obtain a fresh Firebase ID token.
-func refreshIDToken() (string, error) {
+func refreshIDToken() (refreshResult, error) {
 	resp, err := http.PostForm(
 		"https://securetoken.googleapis.com/v1/token?key="+firebaseAPIKey,
 		url.Values{
 			"grant_type":    {"refresh_token"},
-			"refresh_token": {cfg.RefreshToken},
+			"refresh_token": {creds.RefreshToken},
 		},
 	)
 	if err != nil {
-		return "", err
+		return refreshResult{}, err
 	}
 	defer resp.Body.Close()
-	var result struct {
-		IDToken string `json:"id_token"`
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		return refreshResult{}, fmt.Errorf("refresh token HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
-	json.NewDecoder(resp.Body).Decode(&result) //nolint:errcheck
-	return result.IDToken, nil
+	var result refreshResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		return refreshResult{}, err
+	}
+	if result.IDToken == "" {
+		return refreshResult{}, errors.New("refresh token response did not include id_token")
+	}
+	return result, nil
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -182,19 +203,25 @@ func exchangeGoogleCode(code, verifier, redirectURI string) string {
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		panic(fmt.Sprintf("token exchange HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body))))
+	}
 	var result struct {
 		IDToken string `json:"id_token"`
 	}
 	json.Unmarshal(body, &result) //nolint:errcheck
+	if result.IDToken == "" {
+		panic("token exchange returned no id_token")
+	}
 	return result.IDToken
 }
 
-func firebaseSignIn(googleIDToken string) (uid, refreshToken, idToken string) {
+func firebaseSignIn(googleIDToken string) firebaseSignInResult {
 	payload := map[string]interface{}{
-		"postBody":          "id_token=" + googleIDToken + "&providerId=google.com",
-		"requestUri":        "http://localhost",
+		"postBody":            "id_token=" + googleIDToken + "&providerId=google.com",
+		"requestUri":          googleRedirectURI,
 		"returnIdpCredential": true,
-		"returnSecureToken": true,
+		"returnSecureToken":   true,
 	}
 	b, _ := json.Marshal(payload)
 	resp, err := http.Post(
@@ -206,13 +233,26 @@ func firebaseSignIn(googleIDToken string) (uid, refreshToken, idToken string) {
 		panic(fmt.Sprintf("firebase sign-in: %v", err))
 	}
 	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		panic(fmt.Sprintf("firebase sign-in HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body))))
+	}
 	var result struct {
 		LocalID      string `json:"localId"`
 		RefreshToken string `json:"refreshToken"`
 		IDToken      string `json:"idToken"`
 	}
-	json.NewDecoder(resp.Body).Decode(&result) //nolint:errcheck
-	return result.LocalID, result.RefreshToken, result.IDToken
+	if err := json.Unmarshal(body, &result); err != nil {
+		panic(fmt.Sprintf("firebase sign-in decode: %v", err))
+	}
+	if result.LocalID == "" || result.RefreshToken == "" || result.IDToken == "" {
+		panic("firebase sign-in returned incomplete credentials")
+	}
+	return firebaseSignInResult{
+		UID:          result.LocalID,
+		RefreshToken: result.RefreshToken,
+		IDToken:      result.IDToken,
+	}
 }
 
 func pkceVerifier() string {
