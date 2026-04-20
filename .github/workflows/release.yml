@@ -118,6 +118,10 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          if [ -z "$SIGNING_KEY_BASE64" ]; then
+            echo "ERROR: SIGNING_KEY_BASE64 secret is not set" >&2
+            exit 1
+          fi
           echo "$SIGNING_KEY_BASE64" | base64 -d > keystore.jks
           BUILD_TOOLS=$(ls "$ANDROID_SDK_ROOT/build-tools" | sort -V | tail -1)
           APKSIGNER="$ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/apksigner"
