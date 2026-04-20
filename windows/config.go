@@ -19,8 +19,16 @@ type Config struct {
 var cfg Config
 
 func configDir() string {
-	d := filepath.Join(os.Getenv("APPDATA"), "Wormhole")
-	os.MkdirAll(d, 0700)
+	base, err := os.UserConfigDir()
+	if err != nil || base == "" {
+		base = os.Getenv("APPDATA")
+	}
+	if base == "" {
+		home, _ := os.UserHomeDir()
+		base = home
+	}
+	d := filepath.Join(base, "Wormhole")
+	os.MkdirAll(d, 0700) //nolint:errcheck
 	return d
 }
 
@@ -41,13 +49,26 @@ func loadConfig() {
 	}
 	if cfg.UID == "" || cfg.RefreshToken == "" {
 		cfg = signIn(cfg.RelayURL, cfg.DeviceID)
+		if cfg.UID == "" || cfg.RefreshToken == "" {
+			panic("sign-in completed but returned no credentials — check Firebase configuration")
+		}
 	}
 	saveConfig()
 }
 
 func saveConfig() {
-	data, _ := json.MarshalIndent(cfg, "", "  ")
-	os.WriteFile(configPath(), data, 0600) //nolint:errcheck
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return
+	}
+	path := configPath()
+	// Atomic write: save to a temp file then rename.
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
+		showErrorToast("Wormhole", "Не удалось сохранить конфигурацию: "+err.Error())
+		return
+	}
+	os.Rename(tmp, path) //nolint:errcheck
 }
 
 func newDeviceID() string {

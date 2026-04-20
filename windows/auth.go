@@ -25,7 +25,7 @@ const (
 )
 
 // signIn performs Google OAuth2 PKCE flow, exchanges for a Firebase ID token,
-// and returns a populated Config.
+// and returns a populated Config. deviceID is carried through so it isn't lost.
 func signIn(relayURL, deviceID string) Config {
 	verifier := pkceVerifier()
 	challenge := pkceChallenge(verifier)
