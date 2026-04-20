@@ -9,16 +9,18 @@ import (
 	ww "github.com/psanford/wormhole-william/wormhole"
 )
 
-// runSend is called when the app is launched via SendTo or tray "Send file…".
+// runSend is called when the app is launched via SendTo (subprocess mode).
 func runSend(filePath string) {
+	if cfg.UID == "" {
+		loadConfig()
+	}
+
 	f, err := os.Open(filePath)
 	if err != nil {
 		showErrorToast("Ошибка открытия файла", err.Error())
 		return
 	}
 	defer f.Close()
-
-	loadConfig()
 
 	c := ww.Client{}
 	ctx := context.Background()
@@ -44,7 +46,9 @@ func runSend(filePath string) {
 
 // runReceive is called when the user clicks "Принять" on a toast notification.
 func runReceive(code, codeID, filename string) {
-	loadConfig()
+	if cfg.UID == "" {
+		loadConfig()
+	}
 
 	c := ww.Client{}
 	ctx := context.Background()

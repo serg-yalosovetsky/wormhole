@@ -6,8 +6,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
+	"time"
 
+	sentry "github.com/getsentry/sentry-go"
 	"github.com/getlantern/systray"
 	"github.com/go-toast/toast"
 )
@@ -31,7 +32,16 @@ func onTrayReady() {
 		for {
 			select {
 			case <-mSend.ClickedCh:
-				go pickAndSend()
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							sentry.CurrentHub().Recover(r)
+							sentry.Flush(2 * time.Second)
+							showErrorToast("Wormhole", fmt.Sprintf("%v", r))
+						}
+					}()
+					openSenderUI()
+				}()
 			case <-mQuit.ClickedCh:
 				systray.Quit()
 			}
@@ -40,33 +50,6 @@ func onTrayReady() {
 }
 
 func onTrayExit() {}
-
-// pickAndSend opens a native file-open dialog and sends the chosen file.
-// No window stays open — dialog is modal and closes on its own.
-func pickAndSend() {
-	psScript := `
-[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-Add-Type -AssemblyName System.Windows.Forms
-$dialog = New-Object System.Windows.Forms.OpenFileDialog
-$dialog.Title = 'Выберите файл для отправки через Wormhole'
-$dialog.Filter = 'All files (*.*)|*.*'
-if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-  Write-Output $dialog.FileName
-}
-`
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", psScript).Output()
-	if err != nil {
-		// User cancelled or dialog unavailable — do nothing.
-		return
-	}
-	filePath := strings.TrimSpace(string(out))
-	if filePath == "" {
-		return
-	}
-
-	runSend(filePath)
-}
 
 // ── Toast notifications ───────────────────────────────────────────────────────
 
