@@ -79,6 +79,8 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         run: |
           go mod download
+          go mod download golang.org/x/mobile
+          gomobile init
           mkdir -p ../android/app/libs
           gomobile bind \
             -target android \
