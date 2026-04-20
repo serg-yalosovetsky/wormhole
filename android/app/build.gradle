@@ -39,6 +39,9 @@ dependencies {
     // Use a direct file dependency so we don't need a flatDir repository.
     implementation files("libs/wormhole.aar")
 
+    // Sentry
+    implementation 'io.sentry:sentry-android:7.+'
+
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
     implementation("com.google.firebase:firebase-messaging")
