@@ -1,6 +1,7 @@
 # Triggered on version tags (e.g. v1.2.3) or manually via workflow_dispatch.
 #
 # Required GitHub Secrets:
+#   GOOGLE_CLIENT_SECRET   — Desktop OAuth client secret (Google Cloud Console → Credentials)
 #   GOOGLE_SERVICES_JSON   — full contents of android/app/google-services.json
 #   GOOGLE_WEB_CLIENT_ID   — Web OAuth client ID used for Android Google Sign-In fallback
 #   SIGNING_KEY_BASE64     — base64-encoded Android keystore (run: base64 keystore.jks)
@@ -39,9 +40,13 @@ jobs:
           GOARCH: amd64
           CGO_ENABLED: '0'
           GOFLAGS: -mod=mod
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          # ↑ passed into ldflags below as -X main.googleClientSecret
         run: |
           go mod download all
-          go build -ldflags="-s -w -H=windowsgui" -o wormhole-windows-amd64.exe .
+          go build \
+            -ldflags="-s -w -H=windowsgui -X 'main.googleClientSecret=${GOOGLE_CLIENT_SECRET}'" \
+            -o wormhole-windows-amd64.exe .
 
       - uses: actions/upload-artifact@v4
         with:

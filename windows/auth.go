@@ -12,7 +12,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -25,6 +24,11 @@ const (
 	googleClientID    = "1473173017-f22r9trf854gm47kb10msqmv8lr5f4ja.apps.googleusercontent.com"
 	googleRedirectURI = "http://localhost"
 )
+
+// googleClientSecret is injected at build time via:
+//   go build -ldflags "-X main.googleClientSecret=<secret>"
+// Never commit the actual value – store it in GitHub Secrets (GOOGLE_CLIENT_SECRET).
+var googleClientSecret string
 
 // signIn performs Google OAuth2 PKCE flow, exchanges for a Firebase ID token,
 // and returns a populated Config. deviceID is carried through so it isn't lost.
@@ -199,8 +203,8 @@ func exchangeGoogleCode(code, verifier, redirectURI string) string {
 		"grant_type":    {"authorization_code"},
 		"redirect_uri":  {redirectURI},
 	}
-	if clientSecret := strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_SECRET")); clientSecret != "" {
-		form.Set("client_secret", clientSecret)
+	if googleClientSecret != "" {
+		form.Set("client_secret", googleClientSecret)
 	}
 
 	resp, err := http.PostForm("https://oauth2.googleapis.com/token", form)
