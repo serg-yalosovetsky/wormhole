@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(cmd /c \"dir e:\\\\code\\\\wormhole\\\\windows\\\\go.sum\")"
+      "PowerShell(cmd /c \"dir e:\\\\code\\\\wormhole\\\\windows\\\\go.sum\")",
+      "PowerShell(cmd /c \"cd /d e:\\\\code\\\\wormhole\\\\windows && build.bat\" 2>&1)",
+      "PowerShell(cmd /c \"cd /d e:\\\\code\\\\wormhole\\\\windows && .\\\\build.bat\" 2>&1)"
     ]
   }
 }
