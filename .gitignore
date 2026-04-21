@@ -18,6 +18,10 @@ backend/*.pyc
 backend/.venv/
 backend/devices.db
 
+
+android/.gradle/
+
+
 # Editor
 .idea/
 .vscode/

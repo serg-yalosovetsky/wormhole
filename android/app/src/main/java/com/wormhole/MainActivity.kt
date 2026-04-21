@@ -2,6 +2,7 @@ package com.wormhole
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
@@ -13,8 +14,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 
 /**
- * Shown only for initial sign-in. After that the user never needs to open the app —
- * everything happens via the share sheet and notifications.
+ * Shown for initial Google sign-in and as a status screen when already signed in.
+ * Everything else happens via the share sheet and notifications.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -23,23 +24,32 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Already signed in → nothing to show, go straight to the background.
-        if (auth.currentUser != null) {
-            finish()
-            return
-        }
-
         setContentView(R.layout.activity_main)
 
-        findViewById<Button>(R.id.btnSignIn).setOnClickListener { startSignIn() }
-        updateStatus()
+        if (auth.currentUser != null) {
+            showSignedInState()
+        } else {
+            showSignInState()
+        }
     }
 
-    private fun updateStatus() {
-        val user = auth.currentUser
-        findViewById<TextView>(R.id.tvStatus).text =
-            if (user != null) "Вошли как ${user.email}" else "Не вошли"
+    private fun showSignedInState() {
+        findViewById<View>(R.id.signInGroup).visibility = View.GONE
+        findViewById<View>(R.id.signedInGroup).visibility = View.VISIBLE
+        findViewById<TextView>(R.id.tvUserEmail).text = auth.currentUser?.email ?: ""
+        findViewById<Button>(R.id.btnSignOut).setOnClickListener { signOut() }
+    }
+
+    private fun showSignInState() {
+        findViewById<View>(R.id.signInGroup).visibility = View.VISIBLE
+        findViewById<View>(R.id.signedInGroup).visibility = View.GONE
+        findViewById<Button>(R.id.btnSignIn).setOnClickListener { startSignIn() }
+    }
+
+    private fun signOut() {
+        auth.signOut()
+        GoogleSignIn.getClient(this, GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
+        showSignInState()
     }
 
     private fun startSignIn() {
@@ -63,10 +73,8 @@ class MainActivity : AppCompatActivity() {
             auth.signInWithCredential(credential).addOnCompleteListener(this) { t ->
                 if (t.isSuccessful) {
                     Toast.makeText(this, "Готово! Теперь можно закрыть приложение.", Toast.LENGTH_LONG).show()
-                    updateStatus()
-                    // Register FCM token now that we have a UID.
                     RelayClient.registerDevice(this)
-                    finish()
+                    showSignedInState()
                 } else {
                     Toast.makeText(this, "Ошибка входа: ${t.exception?.message}", Toast.LENGTH_LONG).show()
                     t.exception?.let { io.sentry.Sentry.captureException(it) }
