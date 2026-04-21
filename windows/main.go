@@ -76,6 +76,10 @@ func startBackgroundServices() {
 		}
 	}()
 
+	// Register the wormhole: URI protocol handler so toast buttons work.
+	// Idempotent – safe to call on every launch.
+	installShortcuts() //nolint:errcheck
+
 	loadConfig()
 	registerWithBackend()
 	pollLoop()

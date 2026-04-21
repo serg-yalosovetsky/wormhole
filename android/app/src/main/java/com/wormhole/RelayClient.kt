@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -58,6 +59,32 @@ object RelayClient {
                 "filename"         to filename
             ))
         }
+    }
+
+    data class PendingCode(val id: String, val code: String, val filename: String)
+
+    /** Fetch unacknowledged codes waiting for this device. */
+    suspend fun pollPending(context: Context): List<PendingCode> = withContext(Dispatchers.IO) {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@withContext emptyList()
+        val deviceId = deviceId(context)
+        runCatching {
+            val req = okhttp3.Request.Builder()
+                .url("$RELAY_URL/poll/$uid/$deviceId")
+                .get()
+                .build()
+            val body = http.newCall(req).execute().use { resp ->
+                resp.body?.string() ?: return@runCatching emptyList<PendingCode>()
+            }
+            val arr = JSONObject(body).getJSONArray("codes")
+            (0 until arr.length()).map { i ->
+                val obj = arr.getJSONObject(i)
+                PendingCode(
+                    id       = obj.getString("id"),
+                    code     = obj.getString("code"),
+                    filename = obj.getString("filename")
+                )
+            }
+        }.getOrElse { emptyList() }
     }
 
     /** Mark a pending code as handled so it won't appear on other devices. */
