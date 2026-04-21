@@ -3,8 +3,10 @@ package com.wormhole
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -20,7 +22,10 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
  * Shown for initial Google sign-in and as a status screen when already signed in.
@@ -36,6 +41,13 @@ class MainActivity : AppCompatActivity() {
     private val notifPermLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { /* granted or denied — system manages the setting */ }
+
+    private val pickFileLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri ?: return@registerForActivityResult
+        sendFileUri(uri)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,6 +72,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.signInGroup).visibility = View.GONE
         findViewById<View>(R.id.signedInGroup).visibility = View.VISIBLE
         findViewById<TextView>(R.id.tvUserEmail).text = auth.currentUser?.email ?: ""
+        findViewById<Button>(R.id.btnPickFile).setOnClickListener { pickFileLauncher.launch("*/*") }
         findViewById<Button>(R.id.btnSignOut).setOnClickListener { signOut() }
         // Ensure FCM token is registered in case it was refreshed while not signed in.
         RelayClient.registerDevice(this)
@@ -154,6 +167,55 @@ class MainActivity : AppCompatActivity() {
     private fun removeFromList(pending: RelayClient.PendingCode) {
         currentPending.remove(pending)
         renderPending(currentPending)
+    }
+
+    private fun sendFileUri(uri: Uri) {
+        Toast.makeText(this, "Wormhole: отправляем…", Toast.LENGTH_SHORT).show()
+        RelayClient.registerDevice(applicationContext)
+        lifecycleScope.launch(Dispatchers.IO) {
+            val file = copyToCache(uri) ?: run {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Не удалось прочитать файл", Toast.LENGTH_LONG).show()
+                }
+                return@launch
+            }
+            WormholeLib.sendFile(file.absolutePath, object : WormholeLib.SendCallback {
+                override fun onCode(code: String) {
+                    RelayClient.notifyDevices(applicationContext, code, file.name)
+                    lifecycleScope.launch(Dispatchers.Main) {
+                        Toast.makeText(applicationContext, "Код: $code", Toast.LENGTH_LONG).show()
+                    }
+                }
+                override fun onProgress(sent: Long, total: Long) {}
+                override fun onError(msg: String) {
+                    lifecycleScope.launch(Dispatchers.Main) {
+                        Toast.makeText(applicationContext, "Ошибка: $msg", Toast.LENGTH_LONG).show()
+                    }
+                }
+                override fun onDone() { file.delete() }
+            })
+        }
+    }
+
+    private fun copyToCache(uri: Uri): File? {
+        val name = queryFileName(uri) ?: "wormhole_file"
+        val dest = File(cacheDir, name)
+        return try {
+            contentResolver.openInputStream(uri)?.use { input ->
+                dest.outputStream().use { output -> input.copyTo(output) }
+            }
+            dest
+        } catch (e: Exception) { null }
+    }
+
+    private fun queryFileName(uri: Uri): String? {
+        val cursor = contentResolver.query(uri, null, null, null, null) ?: return null
+        return cursor.use {
+            if (it.moveToFirst()) {
+                val idx = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (idx >= 0) it.getString(idx) else null
+            } else null
+        }
     }
 
     private fun requestNotificationPermission() {

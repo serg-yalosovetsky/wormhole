@@ -121,17 +121,6 @@ func runReceive(code, codeID, filename string) {
 
 	go srv.Serve(ln) //nolint:errcheck
 
-	go func() {
-		select {
-		case <-done:
-			time.Sleep(4 * time.Second)
-		case <-time.After(30 * time.Minute):
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		srv.Shutdown(ctx) //nolint:errcheck
-	}()
-
 	openBrowser(fmt.Sprintf("http://localhost:%d/", port))
 
 	go func() {
@@ -199,6 +188,13 @@ func runReceive(code, codeID, filename string) {
 		progressCh <- recvProgressEvent{Done: true}
 		showReceivedToast(msg.Name, outPath)
 	}()
+
+	// Block until transfer finishes, keeping the process (and HTTP server) alive.
+	<-done
+	time.Sleep(4 * time.Second)
+	shutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	srv.Shutdown(shutCtx) //nolint:errcheck
 }
 
 func desktopDir() string {

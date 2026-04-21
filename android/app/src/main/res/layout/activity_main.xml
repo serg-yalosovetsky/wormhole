@@ -86,10 +86,17 @@
                 android:visibility="gone" />
 
             <Button
-                android:id="@+id/btnSignOut"
+                android:id="@+id/btnPickFile"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="32dp"
+                android:text="Выбрать файл" />
+
+            <Button
+                android:id="@+id/btnSignOut"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
                 android:text="Выйти" />
 
         </LinearLayout>

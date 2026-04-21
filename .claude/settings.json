@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cmd /c \"dir e:\\\\code\\\\wormhole\\\\windows\\\\go.sum\")"
+    ]
+  }
+}
