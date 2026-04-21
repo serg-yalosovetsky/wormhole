@@ -1,6 +1,9 @@
 package com.wormhole
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -8,6 +11,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -26,10 +30,16 @@ class MainActivity : AppCompatActivity() {
 
     private val RC_SIGN_IN = 9001
     private val auth by lazy { FirebaseAuth.getInstance() }
+    private val currentPending = mutableListOf<RelayClient.PendingCode>()
+
+    private val notifPermLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* granted or denied — system manages the setting */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        requestNotificationPermission()
 
         if (auth.currentUser != null) {
             showSignedInState()
@@ -69,6 +79,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderPending(codes: List<RelayClient.PendingCode>) {
+        currentPending.clear()
+        currentPending.addAll(codes)
+
         val list   = findViewById<LinearLayout>(R.id.pendingList)
         val status = findViewById<TextView>(R.id.tvPendingStatus)
 
@@ -120,18 +133,34 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun acceptFile(pending: RelayClient.PendingCode) {
+        // Ack immediately so the item disappears from the queue on all devices.
+        // ReceiveService will also call ackCode on success — that second call is a no-op.
+        RelayClient.ackCode(this, pending.id)
         val intent = Intent(this, ReceiveService::class.java).apply {
             putExtra(ReceiveService.EXTRA_CODE, pending.code)
             putExtra(ReceiveService.EXTRA_CODE_ID, pending.id)
             putExtra(ReceiveService.EXTRA_FILENAME, pending.filename)
         }
         ContextCompat.startForegroundService(this, intent)
-        refreshPending()
+        removeFromList(pending)
     }
 
     private fun declineFile(pending: RelayClient.PendingCode) {
         RelayClient.ackCode(this, pending.id)
-        refreshPending()
+        removeFromList(pending)
+    }
+
+    private fun removeFromList(pending: RelayClient.PendingCode) {
+        currentPending.remove(pending)
+        renderPending(currentPending)
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     private fun signOut() {
