@@ -1,32 +1,205 @@
-# Wormhole — минималистичный UI для magic-wormhole
+# Wormhole
 
-Кроссплатформенный интерфейс для протокола [wormhole-william](https://github.com/psanford/wormhole-william) (совместим с magic-wormhole).
+Минималистичный кроссплатформенный UI для [wormhole-william](https://github.com/psanford/wormhole-william), совместимого с `magic-wormhole`.
 
-## Архитектура
+Проект состоит из трёх частей:
+- `windows/` — приложение для Windows на Go, которое живёт в системном трее
+- `android/` — Android-приложение на Kotlin, которое принимает шаринг и показывает уведомления
+- `backend/` — relay-сервер на FastAPI, который хранит устройства пользователя и раздаёт сигналы о входящих передачах
 
+Сам файл не ходит через backend. Backend нужен только для доставки сигнала "у меня есть wormhole code, забери файл".
+
+## Как это работает
+
+### Общая схема
+
+```text
+Windows app ── register/poll ──┐
+                               │
+Android app ─ register/FCM ────┼── Backend relay ─── уведомление о входящем файле
+                               │
+Wormhole sender/receiver ──────┘
+
+Фактическая передача файла:
+sender ── magic-wormhole / wormhole-william ── receiver
 ```
-Windows app (Go)  ←──FCM/polling──→  Backend relay (FastAPI)  ←──FCM──→  Android app (Kotlin)
-     │                                         │
-     └──── wormhole-william (Go library) ──────┘
-                  (прямой P2P-перенос файла)
-```
 
-- **Windows**: ~12 МБ ОЗУ в простое, только иконка в трее
-- **Android**: 0 МБ в простое (FCM будит приложение при необходимости)
-- **Протокол**: end-to-end зашифрованный P2P (wormhole-william)
+### Что делает backend
 
----
+Backend не проксирует файл и не участвует в содержимом передачи.
+
+Он делает только служебную работу:
+- хранит список устройств пользователя `uid + device_id`
+- сохраняет FCM token Android-устройств
+- создаёт `pending_codes` для каждого целевого устройства
+- шлёт FCM на Android
+- отдаёт pending-коды Windows-клиенту через polling
+- принимает `/ack`, когда код обработан или отклонён
+
+Основные endpoints:
+- `POST /register` — устройство сообщает `uid`, `device_id`, `platform`, `fcm_token`
+- `POST /notify` — отправитель сообщает `code` и `filename`
+- `GET /poll/{uid}/{device_id}` — Windows опрашивает pending-коды
+- `POST /ack` — устройство подтверждает обработку кода
+
+## Поток работы приложения
+
+### 1. Первый запуск и авторизация
+
+#### Android
+
+При первом запуске пользователь входит через Google.
+
+После успешного входа приложение:
+- получает Firebase user
+- получает FCM token
+- генерирует и сохраняет локальный `device_id`
+- вызывает `/register` на backend
+
+После этого Android-устройство известно relay-серверу и может получать входящие сигналы.
+
+#### Windows
+
+Windows-приложение при старте:
+- поднимает tray icon
+- читает локальный конфиг и креды из пользовательской директории
+- при необходимости запускает Google OAuth в браузере
+- меняет Google OAuth token на Firebase token
+- сохраняет сессию на диск
+- регистрирует устройство на backend
+- запускает polling
+
+Сессия сохраняется локально, поэтому повторный вход нужен только если refresh-token протух или стал невалидным.
+
+### 2. Отправка файла
+
+#### Android → другие устройства
+
+Когда пользователь шарит файл в Android:
+- `ShareActivity` получает `ACTION_SEND`
+- копирует файл во временный cache
+- вызывает `WormholeLib.sendFile(...)`
+- как только появляется wormhole code, вызывает `POST /notify`
+- backend создаёт `pending_codes` для других устройств этого же `uid`
+- Android-устройствам отправляется FCM
+- Windows увидит pending-код на следующем poll
+
+Сам файл в этот момент уже готов к получению через wormhole.
+
+#### Windows → другие устройства
+
+Когда пользователь отправляет файл с Windows:
+- либо через `Send to -> Wormhole`
+- либо через tray menu и встроенный локальный sender UI
+
+Приложение:
+- открывает файл
+- запускает `wormhole-william`
+- получает код
+- вызывает `POST /notify`
+- показывает toast с кодом и статусом
+
+### 3. Получение файла
+
+#### Android
+
+Android получает FCM data message:
+- `FcmService` читает `code`, `filename`, `code_id`
+- показывает notification с действиями `Принять` / `Отклонить`
+
+Если пользователь нажимает `Принять`:
+- запускается `ReceiveService`
+- он вызывает `WormholeLib.receiveFile(...)`
+- файл сохраняется в `Downloads`
+- backend получает `/ack`
+
+Если пользователь нажимает `Отклонить`:
+- код помечается как обработанный через `/ack`
+
+#### Windows
+
+Windows не использует FCM. Вместо этого он опрашивает backend каждые 30 секунд:
+- `GET /poll/{uid}/{device_id}`
+- если есть pending-коды, показывает toast
+- при `Принять` запускает получение файла
+- при `Отклонить` вызывает `/ack`
+
+## Что где хранится
+
+### Windows
+
+Windows хранит локальное состояние в пользовательской директории:
+- `%APPDATA%\Wormhole\config.json`
+- `%APPDATA%\Wormhole\credentials.json`
+
+Там лежат:
+- `uid`
+- `device_id`
+- `relay_url`
+- `refresh_token`
+- текущий `id_token`
+
+Это позволяет не логиниться заново при каждом запуске.
+
+### Android
+
+Android хранит:
+- `device_id` в `SharedPreferences`
+- Firebase session внутри Firebase Auth
+
+Полученные файлы сохраняются в `Downloads`.
+
+### Backend
+
+Backend хранит SQLite-базу:
+- `devices` — устройства пользователя
+- `pending_codes` — ожидающие обработки wormhole-коды
+
+## Почему нужен и backend, и wormhole
+
+`wormhole-william` решает только передачу файла между sender и receiver.
+Но сам по себе wormhole не знает:
+- на какие устройства пользователя слать сигнал
+- как разбудить Android в фоне
+- как показать "входящий файл" без ручного ввода кода
+
+Эту часть решает relay:
+- связывает устройства одного пользователя
+- доставляет служебное уведомление
+- даёт Android wake-up через FCM
+- даёт Windows pending-queue через polling
+
+## Что обязательно должно быть настроено
+
+### Firebase / Google Cloud
+
+Для Android:
+- Firebase project
+- Android app `com.wormhole`
+- корректный `google-services.json`
+- включённый Google sign-in
+- добавленные SHA-1 и SHA-256 сертификаты Android app
+- runtime permission на notifications на Android 13+
+
+Для Windows:
+- Firebase Web API key
+- Google OAuth client для Windows
+- рабочий browser OAuth flow
+
+Для backend:
+- service account JSON для Firebase Admin SDK
+
+### Relay URL
+
+И Android, и Windows должны смотреть в один и тот же backend relay.
+
+Сейчас код по умолчанию использует:
+- Android: `android/app/src/main/java/com/wormhole/RelayClient.kt`
+- Windows: значение `RelayURL` в локальном config, по умолчанию `https://wormhole.ibotz.fun`
 
 ## Быстрый старт
 
-### 1. Firebase
-
-1. Создайте проект в [Firebase Console](https://console.firebase.google.com/)
-2. Включите **Authentication → Google**
-3. Добавьте Android-приложение (`com.wormhole`), скачайте `google-services.json` → `android/app/`
-4. Создайте сервис-аккаунт: **Project settings → Service accounts → Generate new private key** → сохраните как `backend/serviceAccount.json`
-
-### 2. Backend
+### 1. Поднять backend
 
 ```bash
 cd backend
@@ -35,67 +208,111 @@ export GOOGLE_APPLICATION_CREDENTIALS=serviceAccount.json
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-Для деплоя на Railway: `railway up` (railway.toml уже настроен).
+Для Railway можно использовать `railway up`.
 
-Замените `RELAY_URL` в:
-- `windows/relay.go` → константа `RELAY_URL` (пока `cfg.RelayURL`)
-- `android/app/src/main/java/com/wormhole/RelayClient.kt` → константа `RELAY_URL`
+### 2. Настроить Android
 
-### 3. Windows
+1. Добавить Android app `com.wormhole` в Firebase
+2. Включить Google sign-in
+3. Добавить SHA-1 и SHA-256
+4. Положить актуальный `google-services.json` в `android/app/`
+5. Собрать AAR:
 
-1. Замените константы в `windows/auth.go`:
-   - `firebaseAPIKey` — из Firebase Console → Project settings → Web API key
-   - `googleClientID` — из Google Cloud Console → OAuth 2.0 client (Desktop app)
-2. Постройте и установите:
-   ```bat
-   cd windows
-   go mod tidy
-   build.bat
-   wormhole-windows-amd64.exe --install
-   ```
-3. Запустите `wormhole-windows-amd64.exe` — войдёт браузер для авторизации Google, затем появится иконка в трее.
+```bash
+cd native
+go mod tidy
+bash build.sh
+```
 
-#### Использование (Windows)
-- **Отправить**: правой кнопкой на файле → **Отправить → Wormhole**, либо иконка в трее → **Отправить файл…**
-- **Получить**: всплывёт уведомление с кнопками **Принять** / **Отклонить**
+6. Собрать APK:
 
-### 4. Android
+```bash
+cd android
+./gradlew assembleRelease
+```
 
-1. Скопируйте `android/app/google-services.json.template` → `android/app/google-services.json` и заполните реальными значениями из Firebase.
-2. Постройте нативную библиотеку:
-   ```bash
-   cd native
-   go mod tidy
-   bash build.sh   # → android/app/libs/wormhole.aar
-   ```
-3. Постройте APK:
-   ```bash
-   cd android
-   ./gradlew assembleRelease
-   ```
-4. Установите APK, откройте приложение → войдите через Google.
+7. Установить APK
+8. Открыть приложение
+9. Войти через Google
+10. Разрешить уведомления
 
-#### Использование (Android)
-- **Отправить**: в любом приложении → **Поделиться** → **Wormhole**
-- **Получить**: появится уведомление **Принять / Отклонить**; после приёма файл сохраняется в **Загрузки**
+### 3. Настроить Windows
 
----
+1. Скопировать `windows/auth.secrets.json.template` в `windows/auth.secrets.json`
+2. Заполнить в `windows/auth.secrets.json` реальные значения:
+   - `firebase_api_key`
+   - `google_client_id`
+   - при необходимости `google_client_secret`
+3. Запустить `build.bat` — скрипт временно генерирует локальный Go-файл, вшивает значения в бинарник и удаляет временный файл после сборки
+4. Собрать приложение:
+
+```bat
+cd windows
+go mod tidy
+build.bat
+wormhole-windows-amd64.exe --install
+```
+
+5. Запустить `wormhole-windows-amd64.exe`
+6. Выполнить вход через браузер
+7. Убедиться, что приложение появилось в трее
+
+## Поведение по платформам
+
+### Windows
+
+- работает как tray app
+- имеет sender UI в браузере для drag-and-drop
+- умеет отправлять через `SendTo`
+- получает сигналы через polling, а не FCM
+- хранит сессию локально
+
+### Android
+
+- имеет минимальный launcher screen
+- умеет принимать файл через share sheet
+- просыпается через FCM
+- показывает notification для входящего файла
+- получает файл в foreground service только в момент передачи
 
 ## Структура проекта
 
-```
-backend/      FastAPI relay-сервер (уведомления через FCM)
-native/       Go-библиотека wormhole-william для gomobile (Android AAR)
-windows/      Go приложение для Windows (системный трей, без окон)
-android/      Kotlin Android-приложение
+```text
+backend/   FastAPI relay + SQLite + Firebase Admin
+native/    Go binding для wormhole-william, собираемый в Android AAR
+windows/   Windows tray app на Go
+android/   Android app на Kotlin
 ```
 
----
+## Ограничения и типичные проблемы
+
+### Нет уведомлений на Android
+
+Проверьте:
+- выдан ли `POST_NOTIFICATIONS`
+- зарегистрировалось ли устройство на backend
+- актуален ли FCM token
+- совпадает ли `uid` на обоих устройствах
+
+### Windows не получает ничего
+
+Проверьте:
+- прошёл ли Windows OAuth login
+- зарегистрировалось ли Windows-устройство на backend
+- не сломан ли relay URL
+- не завис ли polling
+
+### Android Google Sign-In выдаёт `DEVELOPER_ERROR (10)`
+
+Обычно это значит:
+- нет Web OAuth client ID в конфиге
+- не добавлены SHA-1 / SHA-256
+- stale `google-services.json`
 
 ## Ресурсы в простое
 
 | Компонент | ОЗУ | CPU |
 |---|---|---|
-| Windows (трей) | ~12 МБ | ~0% |
-| Android | 0 МБ | 0% |
-| Backend | ~20 МБ | ~0% |
+| Windows tray app | ~12 МБ | ~0% |
+| Android | почти 0 МБ вне активной передачи | ~0% |
+| Backend relay | ~20 МБ | ~0% |

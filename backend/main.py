@@ -108,7 +108,7 @@ def notify(req: NotifyRequest):
     if not devices:
         return {"queued": 0, "fcm_sent": 0}
 
-    android_tokens = []
+    android_targets = []
     code_ids = {}
 
     with _lock, _conn() as c:
@@ -119,26 +119,32 @@ def notify(req: NotifyRequest):
                 "INSERT INTO pending_codes VALUES (?,?,?,?,?,?,0)",
                 (cid, req.uid, dev["device_id"], req.code, req.filename, _ts()),
             )
-            if dev["platform"] == "android":
-                android_tokens.append(dev["fcm_token"])
+            if dev["platform"] == "android" and dev["fcm_token"]:
+                android_targets.append(
+                    {"device_id": dev["device_id"], "fcm_token": dev["fcm_token"], "code_id": cid}
+                )
 
     fcm_sent = 0
-    if android_tokens:
-        msg = messaging.MulticastMessage(
+    for target in android_targets:
+        msg = messaging.Message(
             data={
                 "code": req.code,
                 "filename": req.filename,
-                "code_id": code_ids.get(devices[0]["device_id"], ""),
+                "code_id": target["code_id"],
             },
             notification=messaging.Notification(
                 title="📥 Входящий файл",
                 body=req.filename,
             ),
             android=messaging.AndroidConfig(priority="high"),
-            tokens=android_tokens,
+            token=target["fcm_token"],
         )
-        resp = messaging.send_each_for_multicast(msg)
-        fcm_sent = resp.success_count
+        try:
+            messaging.send(msg)
+            fcm_sent += 1
+        except Exception:
+            # Keep notify best-effort: pending_codes already contains the transfer.
+            pass
 
     return {"queued": len(devices), "fcm_sent": fcm_sent}
 

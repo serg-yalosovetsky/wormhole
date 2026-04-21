@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.FirebaseApp
 
 class WormholeApp : Application() {
@@ -19,6 +20,14 @@ class WormholeApp : Application() {
         }
         try {
             createNotificationChannels()
+        } catch (e: Exception) {
+            io.sentry.Sentry.captureException(e)
+        }
+        try {
+            if (FirebaseAuth.getInstance().currentUser != null) {
+                // Re-register on every app start so relay state survives backend/db resets.
+                RelayClient.registerDevice(applicationContext)
+            }
         } catch (e: Exception) {
             io.sentry.Sentry.captureException(e)
         }

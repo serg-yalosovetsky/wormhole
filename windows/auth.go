@@ -18,17 +18,31 @@ import (
 	"time"
 )
 
-// Firebase / Google OAuth constants – replace with your project values.
-const (
-	firebaseAPIKey    = "AIzaSyDKjqPzxhE3JEsOpOjz_FFCejiK-mSPbOQ"
-	googleClientID    = "1473173017-f22r9trf854gm47kb10msqmv8lr5f4ja.apps.googleusercontent.com"
-	googleRedirectURI = "http://localhost"
-)
+const googleRedirectURI = "http://localhost"
 
-// googleClientSecret is injected at build time via:
-//   go build -ldflags "-X main.googleClientSecret=<secret>"
-// Never commit the actual value – store it in GitHub Secrets (GOOGLE_CLIENT_SECRET).
-var googleClientSecret string
+type authSettings struct {
+	FirebaseAPIKey     string
+	GoogleClientID     string
+	GoogleClientSecret string
+}
+
+var authCfg = loadAuthSettings()
+
+func loadAuthSettings() authSettings {
+	cfg := embeddedAuthSettings()
+
+	missing := make([]string, 0, 2)
+	if strings.TrimSpace(cfg.FirebaseAPIKey) == "" {
+		missing = append(missing, "firebase_api_key")
+	}
+	if strings.TrimSpace(cfg.GoogleClientID) == "" {
+		missing = append(missing, "google_client_id")
+	}
+	if len(missing) > 0 {
+		panic("missing embedded auth settings: " + strings.Join(missing, ", ") + "; rebuild via windows/build.bat")
+	}
+	return cfg
+}
 
 // signIn performs Google OAuth2 PKCE flow, exchanges for a Firebase ID token,
 // and returns a populated Config. deviceID is carried through so it isn't lost.
@@ -46,7 +60,7 @@ func signIn(relayURL, deviceID string) (Config, Credentials) {
 
 	// Build Google OAuth URL.
 	authURL := "https://accounts.google.com/o/oauth2/v2/auth?" + url.Values{
-		"client_id":             {googleClientID},
+		"client_id":             {authCfg.GoogleClientID},
 		"redirect_uri":          {redirectURI},
 		"response_type":         {"code"},
 		"scope":                 {"openid email"},
@@ -138,7 +152,7 @@ func signIn(relayURL, deviceID string) (Config, Credentials) {
 	defer cancel()
 	srv.Shutdown(ctx) //nolint:errcheck
 
-	// Exchange auth code for Google ID token (no client secret — PKCE only).
+	// Exchange auth code for Google ID token.
 	googleToken := exchangeGoogleCode(authCode, verifier, redirectURI)
 
 	// Exchange Google ID token for Firebase ID token + refresh token.
@@ -169,7 +183,7 @@ type firebaseSignInResult struct {
 // refreshIDToken uses the stored refresh token to obtain a fresh Firebase ID token.
 func refreshIDToken() (refreshResult, error) {
 	resp, err := http.PostForm(
-		"https://securetoken.googleapis.com/v1/token?key="+firebaseAPIKey,
+		"https://securetoken.googleapis.com/v1/token?key="+authCfg.FirebaseAPIKey,
 		url.Values{
 			"grant_type":    {"refresh_token"},
 			"refresh_token": {creds.RefreshToken},
@@ -197,14 +211,14 @@ func refreshIDToken() (refreshResult, error) {
 
 func exchangeGoogleCode(code, verifier, redirectURI string) string {
 	form := url.Values{
-		"client_id":     {googleClientID},
+		"client_id":     {authCfg.GoogleClientID},
 		"code":          {code},
 		"code_verifier": {verifier},
 		"grant_type":    {"authorization_code"},
 		"redirect_uri":  {redirectURI},
 	}
-	if googleClientSecret != "" {
-		form.Set("client_secret", googleClientSecret)
+	if authCfg.GoogleClientSecret != "" {
+		form.Set("client_secret", authCfg.GoogleClientSecret)
 	}
 
 	resp, err := http.PostForm("https://oauth2.googleapis.com/token", form)
@@ -216,7 +230,7 @@ func exchangeGoogleCode(code, verifier, redirectURI string) string {
 	if resp.StatusCode >= 300 {
 		msg := fmt.Sprintf("token exchange HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 		if strings.Contains(string(body), "client_secret is missing") {
-			msg += " (set GOOGLE_CLIENT_SECRET for the Desktop OAuth client)"
+			msg += " (desktop OAuth client still needs google_client_secret; rebuild with windows\\auth.secrets.json)"
 		}
 		panic(msg)
 	}
@@ -239,7 +253,7 @@ func firebaseSignIn(googleIDToken string) firebaseSignInResult {
 	}
 	b, _ := json.Marshal(payload)
 	resp, err := http.Post(
-		"https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key="+firebaseAPIKey,
+		"https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key="+authCfg.FirebaseAPIKey,
 		"application/json",
 		strings.NewReader(string(b)),
 	)

@@ -37,6 +37,7 @@ class ShareActivity : AppCompatActivity() {
         }
 
         Toast.makeText(this, "Wormhole: отправляем…", Toast.LENGTH_SHORT).show()
+        RelayClient.registerDevice(applicationContext)
 
         CoroutineScope(Dispatchers.IO).launch {
             val file = copyToCache(uri) ?: run {

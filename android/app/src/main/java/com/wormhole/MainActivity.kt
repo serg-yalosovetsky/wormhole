@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
 
     private val RC_SIGN_IN = 9001
+    private val RC_NOTIFICATIONS = 9002
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val currentPending = mutableListOf<RelayClient.PendingCode>()
 
@@ -202,4 +203,5 @@ class MainActivity : AppCompatActivity() {
             io.sentry.Sentry.captureException(e)
         }
     }
+
 }
