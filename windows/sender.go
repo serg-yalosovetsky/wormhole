@@ -291,3 +291,109 @@ function status(t,c){const s=document.getElementById('status');s.textContent=t;s
 </script>
 </body>
 </html>`
+
+const receiverHTML = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wormhole — получение файла</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%236366f1'/%3E%3Ccircle cx='50' cy='50' r='34' fill='none' stroke='white' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='22' fill='none' stroke='white' stroke-width='4' opacity='.6'/%3E%3Ccircle cx='50' cy='50' r='10' fill='none' stroke='white' stroke-width='3' opacity='.35'/%3E%3Ccircle cx='50' cy='50' r='4' fill='white'/%3E%3C/svg%3E">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f1117;color:#e8eaf0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+     display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.card{background:#1a1d27;border:1px solid #2a2d3a;border-radius:16px;padding:40px 48px;
+      max-width:520px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.logo{width:56px;height:56px;margin:0 auto 14px;border-radius:14px;overflow:hidden}
+.logo svg{width:100%;height:100%}
+h1{font-size:20px;font-weight:700;margin-bottom:28px;color:#fff}
+.fname{font-size:15px;font-weight:500;color:#e2e8f0;margin-bottom:20px;
+       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;display:none}
+.bar-wrap{background:#252836;border-radius:100px;height:8px;overflow:hidden;
+          margin-bottom:12px;position:relative}
+.bar-fill{height:100%;background:linear-gradient(90deg,#6366f1,#a78bfa);
+          border-radius:100px;width:0%;transition:width .3s ease}
+.bar-fill.sliding{position:absolute;width:40%!important;transition:none;
+                  animation:slide 1.4s ease-in-out infinite}
+@keyframes slide{0%{left:-40%}60%,100%{left:110%}}
+.bytes{font-size:12px;color:#6b7280;margin-bottom:16px;min-height:18px}
+.status{font-size:14px;color:#9ca3af;min-height:20px;margin-bottom:20px}
+.status.ok{color:#22c55e;font-weight:600}
+.status.err{color:#ef4444}
+.btn{background:#6366f1;color:#fff;border:none;border-radius:8px;
+     padding:11px 24px;font-size:14px;font-weight:600;cursor:pointer;display:none}
+.btn:hover{background:#5558e3}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#7c3aed"/>
+        </linearGradient>
+        <radialGradient id="void" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#1e1b4b"/>
+          <stop offset="100%" stop-color="#1e1b4b" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect width="100" height="100" rx="22" fill="url(#g)"/>
+      <circle cx="50" cy="50" r="34" fill="none" stroke="#fff" stroke-width="6" opacity=".95"/>
+      <circle cx="50" cy="50" r="23" fill="none" stroke="#fff" stroke-width="4" opacity=".65"/>
+      <circle cx="50" cy="50" r="12" fill="none" stroke="#fff" stroke-width="3" opacity=".38"/>
+      <circle cx="50" cy="50" r="34" fill="url(#void)"/>
+      <circle cx="50" cy="50" r="4"  fill="#fff" opacity=".9"/>
+    </svg>
+  </div>
+  <h1>Wormhole</h1>
+  <div class="fname" id="fname"></div>
+  <div class="bar-wrap"><div class="bar-fill sliding" id="bar"></div></div>
+  <div class="bytes" id="bytes"></div>
+  <div class="status" id="status">Подготовка…</div>
+  <button class="btn" id="open-btn" onclick="openFolder()">📂 Открыть папку</button>
+</div>
+<script>
+let totalSize=0;
+const bar=document.getElementById('bar');
+const es=new EventSource('/progress');
+es.onmessage=e=>{
+  const d=JSON.parse(e.data);
+  if(d.filename){
+    const fn=document.getElementById('fname');
+    fn.style.display='block';fn.textContent=d.filename;
+    totalSize=d.size||0;
+    setStatus('Получение…');
+    if(totalSize>0){bar.classList.remove('sliding');setBar(0)}
+  }
+  if(d.bytes!==undefined&&d.bytes>0){
+    if(totalSize>0){
+      const pct=Math.min(100,d.bytes/totalSize*100);
+      setBar(pct);
+      document.getElementById('bytes').textContent=fmt(d.bytes)+' / '+fmt(totalSize);
+    } else {
+      document.getElementById('bytes').textContent=fmt(d.bytes);
+    }
+  }
+  if(d.done){
+    bar.classList.remove('sliding');setBar(100);
+    document.getElementById('bytes').textContent='';
+    setStatus('✅ Файл получен!','ok');
+    document.getElementById('open-btn').style.display='inline-block';
+    es.close();
+  }
+  if(d.error){setStatus('❌ '+d.error,'err');bar.classList.remove('sliding');es.close()}
+};
+function setBar(p){bar.style.width=p+'%'}
+function setStatus(t,c){const s=document.getElementById('status');s.textContent=t;s.className='status'+(c?' '+c:'')}
+function fmt(n){
+  if(n>=1073741824)return(n/1073741824).toFixed(1)+' ГБ';
+  if(n>=1048576)return(n/1048576).toFixed(1)+' МБ';
+  if(n>=1024)return(n/1024).toFixed(0)+' КБ';
+  return n+' Б';
+}
+function openFolder(){fetch('/openfolder')}
+</script>
+</body>
+</html>`

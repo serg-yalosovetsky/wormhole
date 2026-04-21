@@ -26,7 +26,7 @@ type authSettings struct {
 	GoogleClientSecret string
 }
 
-var authCfg = loadAuthSettings()
+var authCfg authSettings
 
 func loadAuthSettings() authSettings {
 	cfg := embeddedAuthSettings()

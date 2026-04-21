@@ -41,12 +41,29 @@ jobs:
           CGO_ENABLED: '0'
           GOFLAGS: -mod=mod
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          # ↑ passed into ldflags below as -X main.googleClientSecret
         run: |
           go mod download all
-          go build \
-            -ldflags="-s -w -H=windowsgui -X 'main.googleClientSecret=${GOOGLE_CLIENT_SECRET}'" \
-            -o wormhole-windows-amd64.exe .
+          python3 - <<'PYEOF'
+          import os, json
+          secret = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+          lines = [
+            '//go:build authembed',
+            '',
+            'package main',
+            '',
+            'func embeddedAuthSettings() authSettings {',
+            '\treturn authSettings{',
+            '\t\tFirebaseAPIKey:     ' + json.dumps('AIzaSyDKjqPzxhE3JEsOpOjz_FFCejiK-mSPbOQ') + ',',
+            '\t\tGoogleClientID:     ' + json.dumps('1473173017-f22r9trf854gm47kb10msqmv8lr5f4ja.apps.googleusercontent.com') + ',',
+            '\t\tGoogleClientSecret: ' + json.dumps(secret) + ',',
+            '\t}',
+            '}',
+          ]
+          with open('z_auth_embedded.go', 'w') as f:
+              f.write('\n'.join(lines) + '\n')
+          PYEOF
+          go build -tags authembed -ldflags="-s -w -H=windowsgui" -o wormhole-windows-amd64.exe .
+          rm -f z_auth_embedded.go
 
       - uses: actions/upload-artifact@v4
         with:

@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
+	"unsafe"
 
 	sentry "github.com/getsentry/sentry-go"
 )
@@ -21,7 +23,20 @@ func main() {
 		if r := recover(); r != nil {
 			sentry.CurrentHub().Recover(r)
 			sentry.Flush(2 * time.Second)
+			showFatalError(fmt.Sprintf("%v", r))
 		}
+	}()
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				sentry.CurrentHub().Recover(r)
+				sentry.Flush(2 * time.Second)
+				showFatalError(fmt.Sprintf("Ошибка запуска: %v", r))
+				os.Exit(1)
+			}
+		}()
+		authCfg = loadAuthSettings()
 	}()
 
 	receiveFlag := flag.String("receive", "", "wormhole code to receive (code:codeID:filename)")
@@ -117,6 +132,14 @@ func handleURI(raw string) {
 	case "openfolder":
 		openFolder(filepath.Clean(payload))
 	}
+}
+
+func showFatalError(msg string) {
+	user32 := syscall.NewLazyDLL("user32.dll")
+	mb := user32.NewProc("MessageBoxW")
+	title, _ := syscall.UTF16PtrFromString("Wormhole — критическая ошибка")
+	text, _ := syscall.UTF16PtrFromString(msg)
+	mb.Call(0, uintptr(unsafe.Pointer(text)), uintptr(unsafe.Pointer(title)), 0x10) //nolint:errcheck
 }
 
 // suppress "imported and not used" for fmt when building on non-Windows

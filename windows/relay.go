@@ -6,7 +6,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
+)
+
+var (
+	notifMu    sync.Mutex
+	notifCount = map[string]int{} // codeID → times shown
 )
 
 var httpClient = &http.Client{Timeout: 15 * time.Second}
@@ -63,6 +69,10 @@ func pollIncoming() ([]pendingCode, error) {
 
 // ackCode marks a pending code as handled.
 func ackCode(codeID string) {
+	notifMu.Lock()
+	delete(notifCount, codeID)
+	notifMu.Unlock()
+
 	body := map[string]string{
 		"uid":       cfg.UID,
 		"device_id": cfg.DeviceID,
@@ -80,7 +90,15 @@ func pollLoop() {
 			continue
 		}
 		for _, c := range codes {
-			showReceiveToast(c.ID, c.Code, c.Filename)
+			notifMu.Lock()
+			count := notifCount[c.ID]
+			if count < 3 {
+				notifCount[c.ID] = count + 1
+				notifMu.Unlock()
+				showReceiveToast(c.ID, c.Code, c.Filename)
+			} else {
+				notifMu.Unlock()
+			}
 		}
 	}
 }
