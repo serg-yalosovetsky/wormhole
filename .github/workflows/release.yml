@@ -69,7 +69,6 @@ jobs:
         with:
           name: windows-exe
           path: windows/wormhole-windows-amd64.exe
-          retention-days: 7
 
   # ─────────────────────────────────────────────────────────────────────────
   # Android: gomobile AAR  →  Gradle release APK  →  sign
@@ -164,7 +163,6 @@ jobs:
         with:
           name: android-apk
           path: wormhole-android-*.apk
-          retention-days: 7
 
   # ─────────────────────────────────────────────────────────────────────────
   # Backend: package as tar.gz (no compilation needed for Python)
@@ -183,7 +181,6 @@ jobs:
         with:
           name: backend-pkg
           path: wormhole-backend-*.tar.gz
-          retention-days: 7
 
   # ─────────────────────────────────────────────────────────────────────────
   # Backend Docker: build and push image to GHCR
