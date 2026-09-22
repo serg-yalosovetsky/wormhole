@@ -1,0 +1,45 @@
+# Как раскатывается wormhole. Читает meshdeploy
+# (https://forgejo.ibotz.fun/serg/meshdeploy).
+#
+# В репозитории четыре части — android, windows, native и backend, — но на VPS
+# работает ТОЛЬКО backend: FastAPI-релей, через который телефон и ПК передают
+# друг другу файлы. Остальное собирается на других машинах и к этому узлу
+# отношения не имеет.
+
+service = "wormhole"
+kind    = "systemd"
+repo    = "https://github.com/serg-yalosovetsky/wormhole"
+ring    = 2
+
+[hosts.vps]
+path = "/opt/wormhole"
+unit = "wormhole-relay.service"
+user = "wormhole"
+
+[env]
+# Ключ сервис-аккаунта Google (FCM) лежит файлом backend/serviceAccount.json и
+# в git НЕ входит. В secrets-gateway его нет, проверять по именам нечего.
+secret_names = []
+
+# [build] НЕ ОБЪЯВЛЕНА. backend/requirements.txt между работавшей ревизией и
+# каноном не менялся вовсе — сверено диффом, — значит пересобирать venv незачем.
+# Сборка здесь только добавила бы риск: у релея 160 пакетов, поставленных
+# однажды, и `pip install` мог бы подтянуть новые версии на ровном месте.
+
+[activate]
+restart = ["wormhole-relay.service"]
+
+[health]
+# У релея нет /health: маршруты только рабочие — /register, /notify, /poll,
+# /ack, /cleanup. Дёргать их проверкой нельзя, это запись; а «порт отвечает»
+# ничего не стоит. Поэтому берётся схема API: её отдаёт само приложение, и она
+# содержит его имя — то есть доказывает, что на порту именно релей.
+url           = "http://127.0.0.1:55678/openapi.json"
+expect_status = 200
+body_contains = '"title":"wormhole-relay"'
+timeout_s     = 45
+
+# ВНИМАНИЕ про backend/deploy.sh, который лежит в каноне: это старый ручной
+# установщик (nginx + certbot, APP_DIR=/opt/wormhole-relay, PORT=8000). Живая
+# установка выглядит иначе — /opt/wormhole/backend и порт 55678, — то есть
+# скрипт описывает несуществующую конфигурацию. Раскатка его не запускает.
